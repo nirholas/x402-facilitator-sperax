@@ -680,4 +680,4 @@ Built by [Sperax](https://sperax.io) for the x402 ecosystem.
 
 ## License
 
-MIT
+All rights reserved. See [LICENSE](LICENSE).
