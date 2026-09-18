@@ -8,7 +8,7 @@ import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/
 import { paymentMiddleware } from '@x402/hono';
 import type { Context, Hono } from 'hono';
 import { formatUnits, parseAbi, type PublicClient } from 'viem';
-import { ARBITRUM_ONE, BASE, USDC_BASE, USDS_ARBITRUM, priceIn, usdsPrice } from './assets.js';
+import { ARBITRUM_ONE, BASE, USDC_ARBITRUM, USDC_BASE, USDS_ARBITRUM, priceIn, usdsPrice } from './assets.js';
 import { renderDemoPage } from './demo-page.js';
 import { SNAPSHOT_OUTPUT_EXAMPLE, SNAPSHOT_OUTPUT_SCHEMA, buildOpenApi } from './openapi.js';
 import type { SettlementIndex } from './stats.js';
@@ -123,12 +123,15 @@ export function mountDemo(
   const server = new x402ResourceServer(localFacilitatorClient(facilitator));
   for (const network of demoNetworks) server.register(network, new ExactEvmScheme());
   server.registerExtension(bazaarResourceServerExtension);
-  const accepts: PaymentOption[] = demoNetworks.map((network) => ({
-    scheme: 'exact',
-    network,
-    payTo: demo.payTo,
-    price: network === BASE ? priceIn(USDC_BASE, demo.price) : usdsPrice(demo.price),
-  }));
+  // USDs first (the asset this service exists for), then USDC on Arbitrum,
+  // then USDC on Base when Base is enabled.
+  const accepts: PaymentOption[] = [
+    { scheme: 'exact', network: ARBITRUM_ONE as Network, payTo: demo.payTo, price: usdsPrice(demo.price) },
+    { scheme: 'exact', network: ARBITRUM_ONE as Network, payTo: demo.payTo, price: priceIn(USDC_ARBITRUM, demo.price) },
+    ...(demoNetworks.includes(BASE as Network)
+      ? [{ scheme: 'exact', network: BASE as Network, payTo: demo.payTo, price: priceIn(USDC_BASE, demo.price) }]
+      : []),
+  ];
   app.use(
     '/demo/usds-snapshot',
     paymentMiddleware(

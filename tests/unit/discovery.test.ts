@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app.js';
-import { USDC_BASE, USDS_ARBITRUM } from '../../src/assets.js';
+import { USDC_ARBITRUM, USDC_BASE, USDS_ARBITRUM } from '../../src/assets.js';
 import { loadConfig } from '../../src/config.js';
 import { createFacilitator } from '../../src/facilitator.js';
 import { createLogger } from '../../src/logger.js';
@@ -71,7 +71,8 @@ describe('runtime 402 agrees with discovery', () => {
 
   it('offers USDs on Arbitrum in atomic units with the bazaar extension', async () => {
     const required = await challenge();
-    expect(required.accepts).toHaveLength(1);
+    expect(required.accepts).toHaveLength(2);
+    expect(required.accepts[1]).toMatchObject({ network: 'eip155:42161', asset: USDC_ARBITRUM.address, amount: '1000', extra: { name: 'USD Coin', version: '2' } });
     expect(required.accepts[0]).toMatchObject({
       network: 'eip155:42161',
       asset: USDS_ARBITRUM.address,
@@ -84,8 +85,8 @@ describe('runtime 402 agrees with discovery', () => {
 
   it('adds USDC on Base after USDs when Base is enabled, and says so in discovery', async () => {
     const required = await challenge({ ENABLE_BASE: 'true' });
-    expect(required.accepts.map((a: { network: string }) => a.network)).toEqual(['eip155:42161', 'eip155:8453']);
-    expect(required.accepts[1]).toMatchObject({ asset: USDC_BASE.address, amount: '1000', extra: { name: 'USD Coin', version: '2' } });
+    expect(required.accepts.map((a: { network: string }) => a.network)).toEqual(['eip155:42161', 'eip155:42161', 'eip155:8453']);
+    expect(required.accepts[2]).toMatchObject({ asset: USDC_BASE.address, amount: '1000', extra: { name: 'USD Coin', version: '2' } });
     const doc = await (await build({ ENABLE_BASE: 'true' }).request('/openapi.json')).json();
     expect(doc.paths['/demo/usds-snapshot'].get['x-payment-info'].protocols[0].x402.networks).toEqual(['eip155:42161', 'eip155:8453']);
   });
