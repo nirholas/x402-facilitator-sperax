@@ -2,6 +2,8 @@
 
 An [x402](https://github.com/x402-foundation/x402) v2 facilitator that lets any HTTP API get paid in **Sperax USDs** on Arbitrum One, alongside USDC on Arbitrum and Base.
 
+**Live:** https://sperax-x402-facilitator-lp642k3kpa-uc.a.run.app ([demo](https://sperax-x402-facilitator-lp642k3kpa-uc.a.run.app/demo), [stats](https://sperax-x402-facilitator-lp642k3kpa-uc.a.run.app/stats)). First mainnet USDs payment over x402: [0x4b95dec2...d3f2](https://arbiscan.io/tx/0x4b95dec2536a2911cab43f494d299d2093406b8f1576c84b4a7935106221d3f2).
+
 A buyer only needs USDs. They do not need ETH, an account, or an API key: the facilitator verifies their signed payment, pays the gas, and settles on-chain.
 
 Verification and settlement run on the upstream `@x402/core` and `@x402/evm` packages. This repo adds the USDs asset configuration, gas sponsoring for the buyer's first payment, and a guard against a defect in the USDs token described below.
