@@ -18,6 +18,8 @@ RUNTIME_SA="${RUNTIME_SA:-three-ws@$PROJECT.iam.gserviceaccount.com}"
 KEY_SECRET="${KEY_SECRET:-sperax-x402-facilitator-key}"
 ARBITRUM_RPC_URL="${ARBITRUM_RPC_URL:-https://arb1.arbitrum.io/rpc}"
 TAG="$(git rev-parse --short HEAD)"
+IMAGE_TAG="$TAG"
+[ -n "${SKIP_BUILD:-}" ] && IMAGE_TAG=latest
 
 cd "$(dirname "$0")/.."
 
@@ -30,7 +32,7 @@ fi
 # signer keeps nonces sequential. Raise max-instances only after moving the
 # pending-settlement store to shared storage.
 gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" \
-  --image "$IMAGE:${SKIP_BUILD:+latest}${SKIP_BUILD:-$TAG}" \
+  --image "$IMAGE:$IMAGE_TAG" \
   --service-account "$RUNTIME_SA" \
   --allow-unauthenticated \
   --min-instances 1 --max-instances 1 \
