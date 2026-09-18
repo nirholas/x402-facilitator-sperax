@@ -77,6 +77,7 @@ The container is stateless and listens on `PORT`, so it runs as-is on Cloud Run,
 ## Registry listing
 
 - **x402scan** reads `/openapi.json` first, then probes each paid route for its `402`. It only indexes **Base and Solana**, so a route offering only Arbitrum is rejected at registration. With `ENABLE_BASE=true` (and the signer funded with ETH on Base), the demo route also accepts USDC on Base after USDs, which makes it listable. `tests/unit/discovery.test.ts` checks the document against x402scan's rules and that the runtime `402` matches it.
+- To register or refresh the listing: `REGISTRAR_PRIVATE_KEY=0x... pnpm register:x402scan https://x402.sperax.io`. It signs in with Sign-In-With-X (no funds move) and prints x402scan's per-route results.
 - **agentic.market** is fed by Coinbase's Bazaar, which catalogs a route only after a paid call settles through the CDP facilitator. The demo route already declares the Bazaar discovery extension; listing it there needs a route whose seller settles through CDP.
 
 ## Sell an API for USDs
