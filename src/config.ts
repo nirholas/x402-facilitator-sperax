@@ -30,6 +30,7 @@ const envSchema = z.object({
   MAX_SPONSORED_GAS_WEI: z.coerce.bigint().nonnegative().default(100_000_000_000_000n),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   PUBLIC_URL: z.string().url().optional(),
+  CONTACT_EMAIL: z.string().email().optional(),
   DEMO_PAY_TO: z
     .string()
     .regex(/^0x[0-9a-fA-F]{40}$/, 'DEMO_PAY_TO must be a 0x-prefixed address')
@@ -61,6 +62,8 @@ export interface FacilitatorConfig {
   publicUrl: string | undefined;
   /** When set, /demo/usds-snapshot is a live paid route paying this address. */
   demo: { payTo: `0x${string}`; price: string } | undefined;
+  /** Published as info.contact.email in /openapi.json (registries use it to verify ownership). */
+  contactEmail: string | undefined;
   /** First Arbitrum block the settlement index scans. */
   statsFromBlock: bigint;
 }
@@ -96,5 +99,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): FacilitatorCon
     publicUrl: e.PUBLIC_URL,
     demo: e.DEMO_PAY_TO ? { payTo: e.DEMO_PAY_TO as `0x${string}`, price: e.DEMO_PRICE } : undefined,
     statsFromBlock: e.STATS_FROM_BLOCK,
+    contactEmail: e.CONTACT_EMAIL,
   };
 }

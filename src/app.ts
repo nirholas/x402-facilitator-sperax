@@ -79,7 +79,7 @@ export function createApp(runtime: FacilitatorRuntime, config: FacilitatorConfig
       x402Version: 2,
       signer: runtime.address,
       networks: runtime.networks,
-      endpoints: ['GET /supported', 'GET /assets', 'POST /verify', 'POST /settle', 'GET /health', 'GET /ready', 'GET /stats', 'GET /demo'],
+      endpoints: ['GET /supported', 'GET /assets', 'POST /verify', 'POST /settle', 'GET /health', 'GET /ready', 'GET /stats', 'GET /demo', 'GET /openapi.json'],
     }),
   );
 
@@ -174,6 +174,9 @@ export function createApp(runtime: FacilitatorRuntime, config: FacilitatorConfig
       stats: new SettlementIndex(arbitrum, config.statsFromBlock, log),
       demo: config.demo,
       publicUrl: config.publicUrl,
+      networks: runtime.networks,
+      version: VERSION,
+      contactEmail: config.contactEmail,
     });
   }
 

@@ -1,13 +1,16 @@
 import type { x402Facilitator } from '@x402/core/facilitator';
 import { x402ResourceServer, type FacilitatorClient } from '@x402/core/server';
-import type { SupportedResponse } from '@x402/core/types';
+import type { PaymentOption } from '@x402/core/http';
+import type { Network, SupportedResponse } from '@x402/core/types';
 import { ExactEvmScheme } from '@x402/evm/exact/server';
 import { declareErc20ApprovalGasSponsoringExtension } from '@x402/extensions';
+import { bazaarResourceServerExtension, declareDiscoveryExtension } from '@x402/extensions/bazaar';
 import { paymentMiddleware } from '@x402/hono';
 import type { Context, Hono } from 'hono';
 import { formatUnits, parseAbi, type PublicClient } from 'viem';
-import { ARBITRUM_ONE, USDS_ARBITRUM, usdsPrice } from './assets.js';
+import { ARBITRUM_ONE, BASE, USDC_BASE, USDS_ARBITRUM, priceIn, usdsPrice } from './assets.js';
 import { renderDemoPage } from './demo-page.js';
+import { SNAPSHOT_OUTPUT_EXAMPLE, SNAPSHOT_OUTPUT_SCHEMA, buildOpenApi } from './openapi.js';
 import type { SettlementIndex } from './stats.js';
 
 const usdsReadAbi = parseAbi([
@@ -73,9 +76,28 @@ export function mountDemo(
     stats: SettlementIndex;
     demo: DemoConfig | undefined;
     publicUrl: string | undefined;
+    networks: string[];
+    version: string;
+    contactEmail: string | undefined;
   },
 ) {
   const { facilitator, arbitrum, stats, demo } = opts;
+  // USDs on Arbitrum is always offered first; USDC on Base is added when this
+  // deployment settles Base, which also makes the route listable on registries
+  // that index Base only.
+  const demoNetworks = (demo ? [ARBITRUM_ONE, ...(opts.networks.includes(BASE) ? [BASE] : [])] : []) as Network[];
+
+  app.get('/openapi.json', (c) => {
+    c.header('Cache-Control', 'public, max-age=300');
+    return c.json(
+      buildOpenApi({
+        baseUrl: opts.publicUrl ?? requestOrigin(c),
+        version: opts.version,
+        contactEmail: opts.contactEmail,
+        demo: demo ? { price: demo.price, networks: demoNetworks } : undefined,
+      }),
+    );
+  });
 
   app.get('/stats', async (c) => {
     try {
@@ -98,16 +120,30 @@ export function mountDemo(
 
   if (!demo) return;
 
-  const server = new x402ResourceServer(localFacilitatorClient(facilitator)).register(ARBITRUM_ONE, new ExactEvmScheme());
+  const server = new x402ResourceServer(localFacilitatorClient(facilitator));
+  for (const network of demoNetworks) server.register(network, new ExactEvmScheme());
+  server.registerExtension(bazaarResourceServerExtension);
+  const accepts: PaymentOption[] = demoNetworks.map((network) => ({
+    scheme: 'exact',
+    network,
+    payTo: demo.payTo,
+    price: network === BASE ? priceIn(USDC_BASE, demo.price) : usdsPrice(demo.price),
+  }));
   app.use(
     '/demo/usds-snapshot',
     paymentMiddleware(
       {
         'GET /demo/usds-snapshot': {
-          accepts: { scheme: 'exact', network: ARBITRUM_ONE, payTo: demo.payTo, price: usdsPrice(demo.price) },
-          description: 'Live USDs supply snapshot on Arbitrum One, paid in USDs over x402',
+          accepts,
+          description:
+            'Live Sperax USD (USDs) supply on Arbitrum One: total supply, rebasing (auto-yield) versus non-rebasing supply, the share earning yield, and pause state.',
           mimeType: 'application/json',
-          extensions: { ...declareErc20ApprovalGasSponsoringExtension() },
+          extensions: {
+            ...declareErc20ApprovalGasSponsoringExtension(),
+            ...declareDiscoveryExtension({
+              output: { example: SNAPSHOT_OUTPUT_EXAMPLE, schema: SNAPSHOT_OUTPUT_SCHEMA as unknown as Record<string, unknown> },
+            }),
+          },
         },
       },
       server,

@@ -65,6 +65,7 @@ The container is stateless and listens on `PORT`, so it runs as-is on Cloud Run,
 | `GET` | `/stats` | Every USDs payment settled over x402 on Arbitrum One (any facilitator), read from chain |
 | `GET` | `/demo` | Public demo page: live settlement stats and copy-paste buyer code |
 | `GET` | `/demo/usds-snapshot` | Paid demo route (when `DEMO_PAY_TO` is set): a live USDs supply snapshot for `DEMO_PRICE` USDs |
+| `GET` | `/openapi.json` | OpenAPI 3.1 discovery document for x402 registries (x402scan): paid routes carry `x-payment-info`, free routes `security: []` |
 | `GET` | `/` | Service metadata |
 
 `/verify` and `/settle` are rate limited per client IP and capped at 64 KB per request body.
@@ -72,6 +73,11 @@ The container is stateless and listens on `PORT`, so it runs as-is on Cloud Run,
 ## Live demo and stats
 
 `/demo` is a public page for anyone evaluating USDs payments. It shows how many USDs payments have settled over x402, the volume, and the latest transactions with Arbiscan links, all read directly from Arbitrum One (USDs transfers inside x402 Permit2 proxy settlements, by any facilitator). With `DEMO_PAY_TO` set, it also exposes `/demo/usds-snapshot`, a real paid route that sells a live USDs supply snapshot, and the page carries the copy-paste script to buy it.
+
+## Registry listing
+
+- **x402scan** reads `/openapi.json` first, then probes each paid route for its `402`. It only indexes **Base and Solana**, so a route offering only Arbitrum is rejected at registration. With `ENABLE_BASE=true` (and the signer funded with ETH on Base), the demo route also accepts USDC on Base after USDs, which makes it listable. `tests/unit/discovery.test.ts` checks the document against x402scan's rules and that the runtime `402` matches it.
+- **agentic.market** is fed by Coinbase's Bazaar, which catalogs a route only after a paid call settles through the CDP facilitator. The demo route already declares the Bazaar discovery extension; listing it there needs a route whose seller settles through CDP.
 
 ## Sell an API for USDs
 
@@ -148,7 +154,8 @@ The buyer example spends real USDs on Arbitrum One.
 | `DEMO_PAY_TO` | unset | Enables the paid `/demo/usds-snapshot` route, paying this address |
 | `DEMO_PRICE` | `0.001` | Price of the demo route in USDs |
 | `STATS_FROM_BLOCK` | `506000000` | First Arbitrum One block `/stats` scans |
-| `PUBLIC_URL` | derived from the request | Base URL shown on the demo page |
+| `PUBLIC_URL` | derived from the request | Base URL shown on the demo page and in `/openapi.json` `servers` |
+| `CONTACT_EMAIL` | unset | Published as `info.contact.email` in `/openapi.json`; registries use it to verify origin ownership |
 
 ## Tests
 
