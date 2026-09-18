@@ -1,42 +1,20 @@
-# ─── Build Stage ──────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
-
+FROM node:22-slim AS build
 WORKDIR /app
-
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@9 --activate
-
-# Install dependencies first (cache layer)
-COPY package.json pnpm-lock.yaml* ./
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
-
-# Copy source and build
-COPY tsconfig.json tsconfig.build.json ./
+COPY tsconfig.json ./
 COPY src ./src
-RUN pnpm build
+RUN pnpm build && pnpm prune --prod
 
-# ─── Production Stage ─────────────────────────────────────────────────────────
-FROM node:20-alpine AS production
-
+FROM node:22-slim
 WORKDIR /app
-
-# Install pnpm & production dependencies only
-RUN corepack enable && corepack prepare pnpm@9 --activate
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile --prod
-
-# Copy compiled output from builder
-COPY --from=builder /app/dist ./dist
-
-# Non-root user for security
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-USER appuser
-
-# Railway injects PORT automatically
+ENV NODE_ENV=production PORT=3402
+COPY --from=build /app/package.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+USER node
 EXPOSE 3402
-
-# Healthcheck for Docker
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:${PORT:-3402}/health || exit 1
-
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3402)+'/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "dist/index.js"]
