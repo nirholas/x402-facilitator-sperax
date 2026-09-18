@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createFacilitator } from './facilitator.js';
+import { withForwardedProto } from './forwarded.js';
 import { createLogger } from './logger.js';
 
 const config = loadConfig();
@@ -9,7 +10,7 @@ const log = createLogger(config.logLevel);
 const runtime = createFacilitator(config, log);
 const app = createApp(runtime, config, log);
 
-const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {
+const server = serve({ fetch: (req) => app.fetch(withForwardedProto(req)), port: config.port, hostname: config.host }, (info) => {
   log.info('facilitator listening', { port: info.port, signer: runtime.address, networks: runtime.networks });
 });
 
