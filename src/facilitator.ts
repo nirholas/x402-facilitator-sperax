@@ -9,11 +9,12 @@ import {
 import {
   createPublicClient,
   createWalletClient,
+  fallback,
   http,
   type Chain,
   type PublicClient,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { nonceManager, privateKeyToAccount } from 'viem/accounts';
 import { arbitrum, base } from 'viem/chains';
 import { ARBITRUM_ONE, BASE } from './assets.js';
 import type { FacilitatorConfig } from './config.js';
@@ -31,11 +32,14 @@ export interface FacilitatorRuntime {
 }
 
 /** Wire one network's viem clients into the signer shape @x402/evm expects. */
-function buildNetworkSigner(config: FacilitatorConfig, network: string, rpcUrl: string, log: Logger) {
+function buildNetworkSigner(config: FacilitatorConfig, network: string, rpcUrls: string[], log: Logger) {
   const chain = CHAINS[network];
   if (!chain) throw new Error(`Unsupported network ${network}`);
-  const account = privateKeyToAccount(config.privateKey);
-  const transport = http(rpcUrl, { retryCount: 3, timeout: 20_000 });
+  // Settlements can run concurrently; the nonce manager hands out sequential nonces locally
+  // instead of each transaction reading the same pending nonce from the RPC.
+  const account = privateKeyToAccount(config.privateKey, { nonceManager });
+  const transports = rpcUrls.map((url) => http(url, { retryCount: 2, timeout: 20_000 }));
+  const transport = transports.length === 1 ? transports[0] : fallback(transports, { retryCount: 1 });
   const publicClient = createPublicClient({ chain, transport }) as PublicClient;
   const walletClient = createWalletClient({ account, chain, transport });
 
@@ -101,8 +105,8 @@ export function createFacilitator(config: FacilitatorConfig, log: Logger): Facil
   const approvalSigners = new Map<string, Erc20ApprovalGasSponsoringSigner>();
   let address: `0x${string}` | undefined;
 
-  for (const { network, rpcUrl } of config.networks) {
-    const built = buildNetworkSigner(config, network, rpcUrl, log);
+  for (const { network, rpcUrls } of config.networks) {
+    const built = buildNetworkSigner(config, network, rpcUrls, log);
     address = built.account.address;
     publicClients.set(network, built.publicClient);
     approvalSigners.set(network, built.approvalSigner);

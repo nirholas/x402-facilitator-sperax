@@ -1,0 +1,13 @@
+# Builds and pushes the facilitator image. Deploy with deploy/cloud-run.sh.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '-t', '${_IMAGE}:${_TAG}', '-t', '${_IMAGE}:latest', '.']
+images:
+  - '${_IMAGE}:${_TAG}'
+  - '${_IMAGE}:latest'
+substitutions:
+  _IMAGE: us-central1-docker.pkg.dev/aerial-vehicle-466722-p5/containers/sperax-x402-facilitator
+  _TAG: manual
+serviceAccount: projects/aerial-vehicle-466722-p5/serviceAccounts/three-ws-build@aerial-vehicle-466722-p5.iam.gserviceaccount.com
+options:
+  logging: CLOUD_LOGGING_ONLY

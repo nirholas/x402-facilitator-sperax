@@ -6,12 +6,18 @@ const flag = z
   .optional()
   .transform((v) => (v === undefined ? undefined : !['', '0', 'false', 'no'].includes(v.toLowerCase())));
 
+/** One RPC URL, or several comma-separated URLs tried in order when one fails. */
+const rpcList = z
+  .string()
+  .transform((v) => v.split(',').map((u) => u.trim()).filter(Boolean))
+  .pipe(z.array(z.string().url()).min(1, 'at least one RPC URL is required'));
+
 const envSchema = z.object({
   FACILITATOR_PRIVATE_KEY: z
     .string()
     .regex(/^0x[0-9a-fA-F]{64}$/, 'FACILITATOR_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key'),
-  ARBITRUM_RPC_URL: z.string().url().default('https://arb1.arbitrum.io/rpc'),
-  BASE_RPC_URL: z.string().url().default('https://mainnet.base.org'),
+  ARBITRUM_RPC_URL: rpcList.default('https://arb1.arbitrum.io/rpc'),
+  BASE_RPC_URL: rpcList.default('https://mainnet.base.org'),
   ENABLE_ARBITRUM: flag,
   ENABLE_BASE: flag,
   PORT: z.coerce.number().int().min(1).max(65535).default(3402),
@@ -27,7 +33,8 @@ const envSchema = z.object({
 
 export interface NetworkConfig {
   network: typeof ARBITRUM_ONE | typeof BASE;
-  rpcUrl: string;
+  /** Tried in order; later URLs take over when an earlier one errors. */
+  rpcUrls: string[];
 }
 
 export interface FacilitatorConfig {
@@ -55,8 +62,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): FacilitatorCon
   const e = parsed.data;
 
   const networks: NetworkConfig[] = [];
-  if (e.ENABLE_ARBITRUM ?? true) networks.push({ network: ARBITRUM_ONE, rpcUrl: e.ARBITRUM_RPC_URL });
-  if (e.ENABLE_BASE ?? false) networks.push({ network: BASE, rpcUrl: e.BASE_RPC_URL });
+  if (e.ENABLE_ARBITRUM ?? true) networks.push({ network: ARBITRUM_ONE, rpcUrls: e.ARBITRUM_RPC_URL });
+  if (e.ENABLE_BASE ?? false) networks.push({ network: BASE, rpcUrls: e.BASE_RPC_URL });
   if (networks.length === 0) {
     throw new Error('Invalid configuration: enable at least one network (ENABLE_ARBITRUM or ENABLE_BASE)');
   }

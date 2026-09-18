@@ -82,3 +82,14 @@ describe('HTTP API', () => {
     expect((await res.json()).invalidReason).toMatch(/^unsupported_scheme_or_network/);
   });
 });
+
+describe('RPC failover config', () => {
+  it('accepts a comma-separated list of RPC URLs in priority order', () => {
+    const config = loadConfig({ FACILITATOR_PRIVATE_KEY: KEY, ARBITRUM_RPC_URL: 'https://a.example/rpc, https://b.example/rpc' });
+    expect(config.networks[0].rpcUrls).toEqual(['https://a.example/rpc', 'https://b.example/rpc']);
+  });
+
+  it('rejects a list containing an invalid URL', () => {
+    expect(() => loadConfig({ FACILITATOR_PRIVATE_KEY: KEY, ARBITRUM_RPC_URL: 'https://a.example/rpc,not-a-url' })).toThrow(/ARBITRUM_RPC_URL/);
+  });
+});
