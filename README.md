@@ -60,9 +60,16 @@ The container is stateless and listens on `PORT`, so it runs as-is on Cloud Run,
 | `GET` | `/assets` | Assets this deployment settles, with the exact `extra` a seller must publish |
 | `GET` | `/health` | Liveness |
 | `GET` | `/ready` | RPC reachability and signer gas balance per network (503 when degraded) |
+| `GET` | `/stats` | Every USDs payment settled over x402 on Arbitrum One (any facilitator), read from chain |
+| `GET` | `/demo` | Public demo page: live settlement stats and copy-paste buyer code |
+| `GET` | `/demo/usds-snapshot` | Paid demo route (when `DEMO_PAY_TO` is set): a live USDs supply snapshot for `DEMO_PRICE` USDs |
 | `GET` | `/` | Service metadata |
 
 `/verify` and `/settle` are rate limited per client IP and capped at 64 KB per request body.
+
+## Live demo and stats
+
+`/demo` is a public page for anyone evaluating USDs payments. It shows how many USDs payments have settled over x402, the volume, and the latest transactions with Arbiscan links, all read directly from Arbitrum One (USDs transfers inside x402 Permit2 proxy settlements, by any facilitator). With `DEMO_PAY_TO` set, it also exposes `/demo/usds-snapshot`, a real paid route that sells a live USDs supply snapshot, and the page carries the copy-paste script to buy it.
 
 ## Sell an API for USDs
 
@@ -126,7 +133,7 @@ The buyer example spends real USDs on Arbitrum One.
 |---|---|---|
 | `FACILITATOR_PRIVATE_KEY` | required | Settlement wallet key (0x-prefixed, 32 bytes) |
 | `ENABLE_ARBITRUM` | `true` | Serve Arbitrum One (USDs, USDC) |
-| `ARBITRUM_RPC_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum One RPC. Use a dedicated endpoint in production |
+| `ARBITRUM_RPC_URL` | `https://arb1.arbitrum.io/rpc` | Arbitrum One RPC. Comma-separate several URLs to fail over in order; use a dedicated endpoint first in production |
 | `ENABLE_BASE` | `false` | Serve Base (USDC) |
 | `BASE_RPC_URL` | `https://mainnet.base.org` | Base RPC |
 | `MAX_SPONSORED_GAS_WEI` | `100000000000000` | Most ETH sent to one buyer to cover their approve. Only `approve(Permit2, ...)` on a Permit2 asset is ever funded |
@@ -136,6 +143,10 @@ The buyer example spends real USDs on Arbitrum One.
 | `CORS_ORIGINS` | `*` | Comma-separated allowed origins |
 | `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MS` | `120` / `60000` | Per-IP limit on `/verify` and `/settle` |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. Logs are one JSON object per line |
+| `DEMO_PAY_TO` | unset | Enables the paid `/demo/usds-snapshot` route, paying this address |
+| `DEMO_PRICE` | `0.001` | Price of the demo route in USDs |
+| `STATS_FROM_BLOCK` | `506000000` | First Arbitrum One block `/stats` scans |
+| `PUBLIC_URL` | derived from the request | Base URL shown on the demo page |
 
 ## Tests
 

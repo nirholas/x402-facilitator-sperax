@@ -76,6 +76,7 @@ describe.skipIf(!ANVIL)('USDs x402 payments on an Arbitrum One fork', () => {
   let facilitatorServer: ServerType;
   let sellerServer: ServerType;
   let sellerUrl: string;
+  let facilitatorUrl: string;
   const payTo = privateKeyToAccount(generatePrivateKey()).address;
 
   const usdsBalance = (address: `0x${string}`) =>
@@ -111,11 +112,20 @@ describe.skipIf(!ANVIL)('USDs x402 payments on an Arbitrum One fork', () => {
     anvil = await startAnvilFork(ANVIL!, FORK_URL);
     pub = createPublicClient({ chain: arbitrum, transport: http(anvil.url) }) as PublicClient;
 
-    const config = loadConfig({ FACILITATOR_PRIVATE_KEY: FACILITATOR_KEY, ARBITRUM_RPC_URL: anvil.url, LOG_LEVEL: 'warn' });
+    const forkHead = await pub.getBlockNumber();
+    const config = loadConfig({
+      FACILITATOR_PRIVATE_KEY: FACILITATOR_KEY,
+      ARBITRUM_RPC_URL: anvil.url,
+      LOG_LEVEL: 'warn',
+      DEMO_PAY_TO: payTo,
+      DEMO_PRICE: '0.001',
+      STATS_FROM_BLOCK: forkHead.toString(),
+    });
     const log = createLogger('warn');
     const facilitatorApp = createApp(createFacilitator(config, log), config, log);
     const facilitatorPort = await freePort();
     facilitatorServer = serve({ fetch: facilitatorApp.fetch, port: facilitatorPort, hostname: '127.0.0.1' });
+    facilitatorUrl = `http://127.0.0.1:${facilitatorPort}`;
 
     const resourceServer = new x402ResourceServer(
       new HTTPFacilitatorClient({ url: `http://127.0.0.1:${facilitatorPort}` }),
@@ -237,6 +247,32 @@ describe.skipIf(!ANVIL)('USDs x402 payments on an Arbitrum One fork', () => {
     const detail = header ? Buffer.from(header, 'base64').toString() : '';
     expect(`${body} ${detail}`).toContain('eip2612_permit_nonfunctional');
     expect(await usdsBalance(buyer.account.address)).toBe(buyerBefore);
+  });
+
+  it('sells the live USDs snapshot on the demo route and indexes every settlement', async () => {
+    const buyer = buyerFetch(generatePrivateKey());
+    await fundWithUsds(buyer.account.address, parseUnits('1', 18));
+
+    const unpaid = await fetch(`${facilitatorUrl}/demo/usds-snapshot`);
+    expect(unpaid.status).toBe(402);
+
+    const res = await buyer.fetch(`${facilitatorUrl}/demo/usds-snapshot`);
+    expect(res.status).toBe(200);
+    const snapshot = await res.json();
+    expect(snapshot).toMatchObject({ asset: USDS, network: ARBITRUM_ONE, paused: false });
+    expect(Number(snapshot.totalSupply)).toBeGreaterThan(0);
+    const settle = new x402HTTPClient(buyer.client).getPaymentSettleResponse((n) => res.headers.get(n));
+    expect(settle.success).toBe(true);
+
+    const stats = await (await fetch(`${facilitatorUrl}/stats`)).json();
+    expect(stats.settlements).toBeGreaterThanOrEqual(4);
+    expect(stats.recent.map((r: { transaction: string }) => r.transaction)).toContain(settle.transaction);
+    const demoRow = stats.recent.find((r: { transaction: string }) => r.transaction === settle.transaction);
+    expect(demoRow).toMatchObject({ payTo, amount: parseUnits('0.001', 18).toString() });
+
+    const page = await fetch(`${facilitatorUrl}/demo`);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain(`${facilitatorUrl}/demo/usds-snapshot`);
   });
 
   it('confirms the reason: USDs permit() consumes the nonce but grants no allowance', async () => {

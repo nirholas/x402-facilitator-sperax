@@ -29,6 +29,13 @@ const envSchema = z.object({
   MIN_GAS_BALANCE_WEI: z.coerce.bigint().nonnegative().default(200_000_000_000_000n),
   MAX_SPONSORED_GAS_WEI: z.coerce.bigint().nonnegative().default(100_000_000_000_000n),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+  PUBLIC_URL: z.string().url().optional(),
+  DEMO_PAY_TO: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{40}$/, 'DEMO_PAY_TO must be a 0x-prefixed address')
+    .optional(),
+  DEMO_PRICE: z.string().regex(/^\d+(\.\d+)?$/, 'DEMO_PRICE must be a decimal such as 0.001').default('0.001'),
+  STATS_FROM_BLOCK: z.coerce.bigint().nonnegative().default(506_000_000n),
 });
 
 export interface NetworkConfig {
@@ -50,6 +57,12 @@ export interface FacilitatorConfig {
   /** Upper bound on ETH sent to a buyer to cover their Permit2 approve transaction. */
   maxSponsoredGasWei: bigint;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
+  /** Public base URL used in the demo page; derived from the request when unset. */
+  publicUrl: string | undefined;
+  /** When set, /demo/usds-snapshot is a live paid route paying this address. */
+  demo: { payTo: `0x${string}`; price: string } | undefined;
+  /** First Arbitrum block the settlement index scans. */
+  statsFromBlock: bigint;
 }
 
 /** Parse and validate configuration. Arbitrum is on by default, Base is opt-in. */
@@ -80,5 +93,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): FacilitatorCon
     minGasBalanceWei: e.MIN_GAS_BALANCE_WEI,
     maxSponsoredGasWei: e.MAX_SPONSORED_GAS_WEI,
     logLevel: e.LOG_LEVEL,
+    publicUrl: e.PUBLIC_URL,
+    demo: e.DEMO_PAY_TO ? { payTo: e.DEMO_PAY_TO as `0x${string}`, price: e.DEMO_PRICE } : undefined,
+    statsFromBlock: e.STATS_FROM_BLOCK,
   };
 }

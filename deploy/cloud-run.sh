@@ -38,7 +38,7 @@ gcloud run deploy "$SERVICE" --project "$PROJECT" --region "$REGION" \
   --min-instances 1 --max-instances 1 \
   --cpu 1 --memory 512Mi --timeout 120 \
   --set-secrets "FACILITATOR_PRIVATE_KEY=$KEY_SECRET:latest" \
-  --update-env-vars "^|^ARBITRUM_RPC_URL=$ARBITRUM_RPC_URL|LOG_LEVEL=info|CONFIRMATION_TIMEOUT_MS=60000"
+  --update-env-vars "^|^ARBITRUM_RPC_URL=$ARBITRUM_RPC_URL|LOG_LEVEL=info|CONFIRMATION_TIMEOUT_MS=60000${DEMO_PAY_TO:+|DEMO_PAY_TO=$DEMO_PAY_TO}"
 
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')"
 echo "Deployed: $URL"

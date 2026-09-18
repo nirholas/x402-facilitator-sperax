@@ -4,10 +4,12 @@ import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { formatEther } from 'viem';
 import { z } from 'zod';
-import { PAYMENT_ASSETS, requirementsExtra } from './assets.js';
+import { ARBITRUM_ONE, PAYMENT_ASSETS, requirementsExtra } from './assets.js';
 import type { FacilitatorConfig } from './config.js';
 import type { FacilitatorRuntime } from './facilitator.js';
+import { mountDemo } from './demo.js';
 import type { Logger } from './logger.js';
+import { SettlementIndex } from './stats.js';
 
 const VERSION = '2.0.0';
 
@@ -77,7 +79,7 @@ export function createApp(runtime: FacilitatorRuntime, config: FacilitatorConfig
       x402Version: 2,
       signer: runtime.address,
       networks: runtime.networks,
-      endpoints: ['GET /supported', 'GET /assets', 'POST /verify', 'POST /settle', 'GET /health', 'GET /ready'],
+      endpoints: ['GET /supported', 'GET /assets', 'POST /verify', 'POST /settle', 'GET /health', 'GET /ready', 'GET /stats', 'GET /demo'],
     }),
   );
 
@@ -163,6 +165,17 @@ export function createApp(runtime: FacilitatorRuntime, config: FacilitatorConfig
       return c.json({ success: false, errorReason: 'facilitator_error', errorMessage: message, transaction: '', network }, 500);
     }
   });
+
+  const arbitrum = runtime.publicClients.get(ARBITRUM_ONE);
+  if (arbitrum) {
+    mountDemo(app, {
+      facilitator,
+      arbitrum,
+      stats: new SettlementIndex(arbitrum, config.statsFromBlock, log),
+      demo: config.demo,
+      publicUrl: config.publicUrl,
+    });
+  }
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
   return app;
