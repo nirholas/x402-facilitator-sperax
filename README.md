@@ -157,6 +157,3 @@ pnpm test:fork   # end-to-end on an Arbitrum One fork (needs Foundry's anvil)
 
 The fork suite runs a real seller, a real x402 buyer holding USDs and no ETH, and this facilitator against the live USDs, Permit2 and x402 proxy contracts. It covers the 402 offer, a first payment with sponsored approval, a repeat payment, the EIP-2612 refusal, and the token defect itself. Set `ARBITRUM_FORK_RPC_URL` to fork from your own RPC.
 
-## License
-
-MIT
